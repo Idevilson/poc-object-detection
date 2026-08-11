@@ -1,0 +1,3 @@
+node_modules/
+# `bob` build output — generated, and linted as if it were source otherwise.
+**/lib/

@@ -1,0 +1,57 @@
+{
+  "name": "FaceRecognition",
+  "version": "0.0.1",
+  "private": true,
+  "workspaces": [
+    "modules/*"
+  ],
+  "scripts": {
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "lint": "eslint .",
+    "start": "react-native start --reset-cache --client-logs",
+    "pod": "bundle install && bundle exec pod install --project-directory=ios"
+  },
+  "dependencies": {
+    "react": "19.2.3",
+    "react-native": "0.84.1",
+    "react-native-keyboard-controller": "^1.22.2",
+    "react-native-nitro-image": "0.15.1",
+    "react-native-nitro-modules": "0.35.9",
+    "react-native-nitro-sqlite": "^9.7.0",
+    "react-native-reanimated": "4.5.0",
+    "react-native-release-profiler": "^0.4.4",
+    "react-native-safe-area-context": "^5.5.2",
+    "react-native-vision-camera": "5.0.11",
+    "react-native-vision-camera-face-recognizer": "workspace:*",
+    "react-native-vision-camera-worklets": "5.0.11",
+    "react-native-worklets": "0.10.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "20.1.0",
+    "@react-native-community/cli-platform-android": "20.1.0",
+    "@react-native-community/cli-platform-ios": "20.1.0",
+    "@react-native/babel-preset": "0.84.1",
+    "@react-native/codegen": "0.84.1",
+    "@react-native/eslint-config": "0.84.1",
+    "@react-native/gradle-plugin": "0.84.1",
+    "@react-native/metro-config": "0.84.1",
+    "@react-native/typescript-config": "0.84.1",
+    "@types/react": "19.2.0",
+    "babel-plugin-module-resolver": "^5.0.2",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "eslint": "^8.19.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "nitrogen": "0.35.9",
+    "prettier": "2.8.8",
+    "react-native-builder-bob": "^0.40.18",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">= 22.11.0"
+  }
+}
