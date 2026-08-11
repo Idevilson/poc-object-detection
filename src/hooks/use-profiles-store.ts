@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FaceRecognizer } from 'react-native-vision-camera-face-recognizer';
 import type { Profile } from '../types';
 import {
@@ -8,30 +8,36 @@ import {
 
 export type NewProfile = Omit<Profile, 'enrolledAt'>;
 
+/** Where the gallery load currently is. Recognition waits for `ready`. */
+export type ProfilesStatus = 'loading' | 'ready' | 'error';
+
 export interface ProfilesStore {
-  add(profile: NewProfile, enrollment: ArrayBuffer): void;
-  remove(id: string, recognizer: FaceRecognizer): void;
+  status: ProfilesStatus;
+  /** Failure from the latest load, when `status` is `error`. */
+  error: string | undefined;
+  /** Retries the load. No-op while one is already running. */
+  reload(): void;
+  /**
+   * Bumped on every successful load. A consumer pushes the gallery into a
+   * recognizer when this changes, instead of tracking that itself.
+   */
+  generation: number;
+
+  list: Profile[];
+
+  /**
+   * Writes the identity to the backend, then mirrors it locally.
+   *
+   * Rejects when the backend refuses. The caller must undo whatever it already
+   * did natively, since the backend is the source of truth.
+   */
+  add(profile: NewProfile, enrollment: ArrayBuffer): Promise<void>;
+  /** Removes remotely first, then from the recognizer and local state. */
+  remove(id: string, recognizer: FaceRecognizer): Promise<void>;
+
   get(id: string): Profile | undefined;
   getEnrollment(id: string): ArrayBuffer | undefined;
   restoreEnrollments(recognizer: FaceRecognizer): void;
-  list: Profile[];
-}
-
-interface StoredProfiles {
-  profiles: Map<string, Profile>;
-  enrollments: Map<string, ArrayBuffer>;
-}
-
-function readInitialProfiles(): StoredProfiles {
-  const profiles = new Map<string, Profile>();
-  const enrollments = new Map<string, ArrayBuffer>();
-
-  profilesRepository.list().forEach((record: PersistedProfile): void => {
-    profiles.set(record.profile.id, record.profile);
-    enrollments.set(record.profile.id, record.enrollment);
-  });
-
-  return { profiles, enrollments };
 }
 
 function toProfileList(profiles: Map<string, Profile>): Profile[] {
@@ -43,34 +49,86 @@ function getErrorMessage(error: unknown): string {
 }
 
 export function useProfilesStore(): ProfilesStore {
-  const [initialProfiles] = useState(readInitialProfiles);
-  const store = useRef<Map<string, Profile>>(initialProfiles.profiles);
-  const enrollmentStore = useRef<Map<string, ArrayBuffer>>(
-    initialProfiles.enrollments,
-  );
-  const [list, setList] = useState<Profile[]>(() =>
-    toProfileList(initialProfiles.profiles),
-  );
+  const [status, setStatus] = useState<ProfilesStatus>('loading');
+  const [error, setError] = useState<string>();
+  const [list, setList] = useState<Profile[]>([]);
+  const [reloadToken, setReloadToken] = useState(0);
+  const [generation, setGeneration] = useState(0);
 
-  const add = (profile: NewProfile, enrollment: ArrayBuffer): void => {
-    const storedProfile: Profile = {
-      ...profile,
-      enrolledAt: Date.now(),
+  const store = useRef<Map<string, Profile>>(new Map());
+  const enrollmentStore = useRef<Map<string, ArrayBuffer>>(new Map());
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+
+    // `loading` is the initial state and `reload` restores it from the event
+    // handler, so nothing has to be set synchronously here.
+    profilesRepository
+      .list(controller.signal)
+      .then((records: PersistedProfile[]) => {
+        if (cancelled) {
+          return;
+        }
+
+        const profiles = new Map<string, Profile>();
+        const enrollments = new Map<string, ArrayBuffer>();
+        records.forEach((record: PersistedProfile): void => {
+          profiles.set(record.profile.id, record.profile);
+          enrollments.set(record.profile.id, record.enrollment);
+        });
+
+        store.current = profiles;
+        enrollmentStore.current = enrollments;
+        setList(toProfileList(profiles));
+        setGeneration(previous => previous + 1);
+        setStatus('ready');
+      })
+      .catch((loadError: unknown) => {
+        if (cancelled || controller.signal.aborted) {
+          return;
+        }
+        setError(getErrorMessage(loadError));
+        setStatus('error');
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
     };
+  }, [reloadToken]);
 
-    profilesRepository.upsert(storedProfile, enrollment);
+  const reload = (): void => {
+    setStatus('loading');
+    setError(undefined);
+    setReloadToken(previous => previous + 1);
+  };
+
+  const add = async (
+    profile: NewProfile,
+    enrollment: ArrayBuffer,
+  ): Promise<void> => {
+    const storedProfile: Profile = { ...profile, enrolledAt: Date.now() };
+
+    // Remote first: if this throws, nothing local has changed yet.
+    await profilesRepository.upsert(storedProfile, enrollment);
+
     store.current.set(profile.id, storedProfile);
     enrollmentStore.current.set(profile.id, enrollment);
     setList(toProfileList(store.current));
   };
 
-  const remove = (id: string, recognizer: FaceRecognizer): void => {
+  const remove = async (
+    id: string,
+    recognizer: FaceRecognizer,
+  ): Promise<void> => {
     if (!store.current.has(id)) {
       return;
     }
 
+    await profilesRepository.remove(id);
+
     recognizer.removeEnrollment(id);
-    profilesRepository.remove(id);
     store.current.delete(id);
     enrollmentStore.current.delete(id);
     setList(toProfileList(store.current));
@@ -82,29 +140,41 @@ export function useProfilesStore(): ProfilesStore {
     enrollmentStore.current.get(id);
 
   const restoreEnrollments = (recognizer: FaceRecognizer): void => {
-    let didRemoveInvalidProfile = false;
+    let didDropInvalid = false;
 
     enrollmentStore.current.forEach(
       (enrollment: ArrayBuffer, id: string): void => {
         try {
           recognizer.addEnrollment(id, enrollment);
-        } catch (error: unknown) {
-          console.warn('Removing invalid persisted enrollment', {
+        } catch (restoreError: unknown) {
+          // Drop locally only. The backend keeps the row so the problem stays
+          // visible and can be fixed there rather than silently erased.
+          console.warn('Recognizer rejected a stored enrollment', {
             id,
-            error: getErrorMessage(error),
+            error: getErrorMessage(restoreError),
           });
-          profilesRepository.remove(id);
           store.current.delete(id);
           enrollmentStore.current.delete(id);
-          didRemoveInvalidProfile = true;
+          didDropInvalid = true;
         }
       },
     );
 
-    if (didRemoveInvalidProfile) {
+    if (didDropInvalid) {
       setList(toProfileList(store.current));
     }
   };
 
-  return { add, remove, get, getEnrollment, restoreEnrollments, list };
+  return {
+    status,
+    error,
+    reload,
+    generation,
+    list,
+    add,
+    remove,
+    get,
+    getEnrollment,
+    restoreEnrollments,
+  };
 }
