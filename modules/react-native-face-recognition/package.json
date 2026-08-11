@@ -50,11 +50,11 @@
     "*.podspec",
     "README.md"
   ],
-  "repository": "https://github.com/patrickkabwe/react-native-vision-camera-face-recognizer.git",
-  "author": "Patrick Kabwe",
+  "repository": "https://github.com/Idevilson/poc-face.git",
+  "author": "Idevilson Developer",
   "license": "MIT",
-  "bugs": "https://github.com/patrickkabwe/react-native-vision-camera-face-recognizer/issues",
-  "homepage": "https://github.com/patrickkabwe/react-native-vision-camera-face-recognizer#readme",
+  "bugs": "https://github.com/Idevilson/poc-face/issues",
+  "homepage": "https://github.com/Idevilson/poc-face#readme",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
