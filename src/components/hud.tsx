@@ -8,7 +8,6 @@ import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { FaceRecognizer } from 'react-native-vision-camera-face-recognizer';
 import { C, S } from '../constants/theme';
-import { useDevicePosture } from '../hooks/use-device-posture';
 import type { FaceEngine } from '../hooks/use-face-engine';
 import { type EnrollJob, useEnrollment } from '../hooks/use-enrollment';
 import type { ProfilesStore } from '../hooks/use-profiles-store';
@@ -42,7 +41,7 @@ export function Hud({
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const scheduler = useScheduler();
-  const posture = useDevicePosture();
+  const posture = engine.posture;
 
   const onRegistered = (
     job: EnrollJob,

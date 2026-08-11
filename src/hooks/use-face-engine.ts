@@ -21,6 +21,7 @@ import {
   type RecognitionState,
 } from '../types';
 import { type FacePipelineState, runFaceFrame } from '../utils/face-pipeline';
+import { type DevicePosture, useDevicePosture } from './use-device-posture';
 import {
   createVersionedValue,
   useSynchronizable,
@@ -45,6 +46,11 @@ export interface FaceEngine {
   enrollResults: WorkletEvent<[id: string, status: EnrollFaceStatus]>;
   recognitionOut: SharedValue<RecognitionState>;
   modeSync: Synchronizable<Mode>;
+  /**
+   * How the handset is currently held. Both enrollment capture and recognition
+   * are gated on it, so the engine owns it rather than the HUD.
+   */
+  posture: DevicePosture;
 }
 
 export function useFaceEngine(): FaceEngine {
@@ -71,6 +77,11 @@ export function useFaceEngine(): FaceEngine {
     useWorkletEvent<[id: string, status: EnrollFaceStatus]>();
   const modeSync = useSynchronizable<Mode>('recognize');
   const faceResultVersion = useSynchronizable<number>(0);
+
+  const posture = useDevicePosture();
+  // Mirrored into a Synchronizable because the frame worklet cannot read React
+  // state. Starts permissive so the first frames are never wrongly blocked.
+  const postureOk = useSynchronizable<boolean>(true);
 
   const faceRecognition = useFaceRecognizer({
     isActive: isForeground,
@@ -124,6 +135,11 @@ export function useFaceEngine(): FaceEngine {
     return () => subscription.remove();
   }, []);
 
+  const isInPosition = posture.inPosition;
+  useEffect(() => {
+    postureOk.setBlocking(isInPosition);
+  }, [postureOk, isInPosition]);
+
   useVersionedSharedValueMirror(overlaySync, overlayFaces);
   useVersionedSharedValueMirror(recognitionSync, recognitionOut);
 
@@ -134,6 +150,7 @@ export function useFaceEngine(): FaceEngine {
     onEnrollResult: enrollResults.deliver,
     mode: modeSync,
     faceResultVersion,
+    postureOk,
   };
 
   const frameOutput = useFrameOutput({
@@ -161,5 +178,6 @@ export function useFaceEngine(): FaceEngine {
     enrollResults,
     recognitionOut,
     modeSync,
+    posture,
   };
 }

@@ -45,7 +45,18 @@ export interface FacePipelineState {
   mode: Synchronizable<Mode>;
   /** Monotonic result version used to avoid redundant JS/UI updates. */
   faceResultVersion: Synchronizable<number>;
+  /**
+   * Whether the handset is held in a pose that allows scanning. Mirrored from
+   * the JS thread, since the worklet cannot read React state.
+   */
+  postureOk: Synchronizable<boolean>;
 }
+
+/** Shown while the device is held outside the pose scanning requires. */
+const POSTURE_STATUS = 'Hold the device upright to scan.';
+
+/** No face slots at all — clears the overlay while scanning is suspended. */
+const NO_FACES: OverlayState['faces'] = [];
 
 function getOrientedFrameSize(frame: Frame): OrientedFrameSize {
   'worklet';
@@ -237,8 +248,16 @@ export function processFaceFrame(
 
   const version = state.faceResultVersion.getDirty() + 1;
   state.faceResultVersion.setBlocking(version);
-
   const frameSize = getOrientedFrameSize(frame);
+
+  // Skipping the engine entirely is the point: a handset lying on a desk
+  // should not be running detection or embedding at all. Publishing empty
+  // slots also clears any boxes left over from the last good frame.
+  if (!state.postureOk.getDirty()) {
+    publishRecognitionResult(state, version, frameSize, NO_FACES, POSTURE_STATUS);
+    return;
+  }
+
   const recognizedFaces = recognizer.recognizeFaces(frame);
   const faces = applyStableFaceSlots(
     {
