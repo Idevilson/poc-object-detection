@@ -30,8 +30,8 @@ Use Bun for this repo. Do not mix in npm or Yarn.
 ## Setup
 
 ```bash
-git clone https://github.com/margelo/face-recognition-demo.git
-cd face-recognition-demo
+git clone https://github.com/Idevilson/poc-face.git
+cd poc-face
 bun install --frozen-lockfile
 ```
 
