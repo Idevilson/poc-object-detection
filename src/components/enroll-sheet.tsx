@@ -12,6 +12,8 @@ interface EnrollSheetProps {
   profiles: Profile[];
   onForget: (profile: Profile) => void;
   onDone: () => void;
+  /** `false` while the device is held outside the pose capture requires. */
+  inPosition: boolean;
 }
 
 /**
@@ -26,6 +28,7 @@ export function EnrollSheet({
   profiles,
   onForget,
   onDone,
+  inPosition,
 }: EnrollSheetProps): React.JSX.Element {
   const [fullName, setFullName] = useState('');
 
@@ -57,6 +60,7 @@ export function EnrollSheet({
       onStart={onStart}
       profiles={profiles}
       onForget={onForget}
+      inPosition={inPosition}
     />
   );
 }
@@ -67,27 +71,33 @@ function NameStep({
   onStart,
   profiles,
   onForget,
+  inPosition,
 }: {
   fullName: string;
   onChangeName: (value: string) => void;
   onStart: () => void;
   profiles: Profile[];
   onForget: (profile: Profile) => void;
+  inPosition: boolean;
 }): React.JSX.Element {
   const name = fullName.trim();
-  const canStart = name.length > 0;
+  const canStart = name.length > 0 && inPosition;
   const existing = profiles.find(profile => profile.id === slugify(name));
+
+  // Device pose outranks the roster note: it is the reason the button is
+  // disabled, so it is what the operator needs to read.
+  const caption = !inPosition
+    ? 'Hold the device in the required position to start.'
+    : existing == null
+      ? 'The camera captures 5 angles automatically.'
+      : `${existing.fullName} is already enrolled — capturing again replaces those samples.`;
 
   return (
     <View style={styles.step}>
       <StepHeader
         step="STEP 1 OF 2"
         title="Who are we enrolling?"
-        caption={
-          existing == null
-            ? 'The camera captures 5 angles automatically.'
-            : `${existing.fullName} is already enrolled — capturing again replaces those samples.`
-        }
+        caption={caption}
       />
 
       <TextInput

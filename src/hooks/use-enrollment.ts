@@ -17,6 +17,15 @@ const FINALIZE_DELAY_MS = 120;
 
 const MAX_MISSES = 15;
 
+/**
+ * How soon to look again after the device was out of position. Shorter than a
+ * normal capture interval so the run resumes the moment the operator corrects
+ * the pose.
+ */
+const POSTURE_RETRY_MS = 200;
+
+const POSTURE_HINT = 'Hold the device in the required position.';
+
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -166,6 +175,7 @@ export function useEnrollment(
   enrollRequest: Synchronizable<string | null>,
   enrollResults: WorkletEvent<[id: string, status: EnrollFaceStatus]>,
   handlers: EnrollmentHandlers,
+  canCapture: () => boolean,
 ): EnrollmentSession {
   const [state, setState] = useState<EnrollmentState>(IDLE_STATE);
   const job = useRef<EnrollJob | null>(null);
@@ -192,9 +202,24 @@ export function useEnrollment(
   ): void => {
     clearTimer();
     captureTimer.current = setTimeout((): void => {
-      if (activeRunId.current === runId && job.current?.slug === slug) {
-        requestCapture(slug);
+      if (activeRunId.current !== runId || job.current?.slug !== slug) {
+        return;
       }
+
+      // A wrong device pose is "not yet", not a failed attempt. Reschedule
+      // without touching the miss counter so the run waits for the operator
+      // instead of aborting under MAX_MISSES.
+      if (!canCapture()) {
+        setState(previous =>
+          previous.hint === POSTURE_HINT
+            ? previous
+            : { ...previous, hint: POSTURE_HINT },
+        );
+        scheduleCapture(slug, runId, POSTURE_RETRY_MS);
+        return;
+      }
+
+      requestCapture(slug);
     }, delayMs);
   };
 
