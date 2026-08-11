@@ -3,17 +3,19 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { KeyboardController } from 'react-native-keyboard-controller';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { C, MONO, S, TYPE } from '../constants/theme';
+import type { DevicePosture } from '../hooks/use-device-posture';
 import type { EnrollmentSession } from '../hooks/use-enrollment';
 import type { Profile } from '../types';
 import { slugify } from '../utils/identity';
+import { PostureGuide } from './posture-guide';
 
 interface EnrollSheetProps {
   enrollment: EnrollmentSession;
   profiles: Profile[];
   onForget: (profile: Profile) => void;
   onDone: () => void;
-  /** `false` while the device is held outside the pose capture requires. */
-  inPosition: boolean;
+  /** Live device pose. Capture is gated on it, so the sheet surfaces it. */
+  posture: DevicePosture;
 }
 
 /**
@@ -28,7 +30,7 @@ export function EnrollSheet({
   profiles,
   onForget,
   onDone,
-  inPosition,
+  posture,
 }: EnrollSheetProps): React.JSX.Element {
   const [fullName, setFullName] = useState('');
 
@@ -50,7 +52,7 @@ export function EnrollSheet({
   }
 
   if (enrollment.busy) {
-    return <CaptureStep enrollment={enrollment} />;
+    return <CaptureStep enrollment={enrollment} posture={posture} />;
   }
 
   return (
@@ -60,7 +62,7 @@ export function EnrollSheet({
       onStart={onStart}
       profiles={profiles}
       onForget={onForget}
-      inPosition={inPosition}
+      posture={posture}
     />
   );
 }
@@ -71,24 +73,23 @@ function NameStep({
   onStart,
   profiles,
   onForget,
-  inPosition,
+  posture,
 }: {
   fullName: string;
   onChangeName: (value: string) => void;
   onStart: () => void;
   profiles: Profile[];
   onForget: (profile: Profile) => void;
-  inPosition: boolean;
+  posture: DevicePosture;
 }): React.JSX.Element {
   const name = fullName.trim();
-  const canStart = name.length > 0 && inPosition;
+  const canStart = name.length > 0 && posture.inPosition;
   const existing = profiles.find(profile => profile.id === slugify(name));
 
-  // Device pose outranks the roster note: it is the reason the button is
-  // disabled, so it is what the operator needs to read.
-  const caption = !inPosition
-    ? 'Hold the device in the required position to start.'
-    : existing == null
+  // The level indicator already explains a bad pose, so the caption stays on
+  // the roster note and does not repeat the same message twice.
+  const caption =
+    existing == null
       ? 'The camera captures 5 angles automatically.'
       : `${existing.fullName} is already enrolled — capturing again replaces those samples.`;
 
@@ -99,6 +100,8 @@ function NameStep({
         title="Who are we enrolling?"
         caption={caption}
       />
+
+      <PostureGuide posture={posture} />
 
       <TextInput
         style={styles.input}
@@ -129,8 +132,10 @@ function NameStep({
 
 function CaptureStep({
   enrollment,
+  posture,
 }: {
   enrollment: EnrollmentSession;
+  posture: DevicePosture;
 }): React.JSX.Element {
   const name = enrollment.job?.fullName ?? '';
 
@@ -144,6 +149,9 @@ function CaptureStep({
         title={name}
         caption={enrollment.hint}
       />
+
+      {/* Capture pauses on a bad pose, so the level stays visible here too. */}
+      <PostureGuide posture={posture} />
 
       <CaptureProgress
         captured={enrollment.captured}

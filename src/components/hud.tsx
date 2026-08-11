@@ -145,7 +145,7 @@ export function Hud({
               profiles={profiles.list}
               onForget={onForget}
               onDone={closeSheet}
-              inPosition={posture.inPosition}
+              posture={posture}
             />
           ) : (
             <Animated.View key="recognize" entering={FadeIn.duration(180)}>

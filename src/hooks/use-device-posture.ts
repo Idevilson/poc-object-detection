@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { SensorType, useAnimatedSensor } from 'react-native-reanimated';
+import {
+  type SharedValue,
+  SensorType,
+  useAnimatedSensor,
+  useDerivedValue,
+} from 'react-native-reanimated';
 
 const RAD_TO_DEG = 180 / Math.PI;
 
@@ -15,21 +20,23 @@ const MIN_GRAVITY_MAGNITUDE = 1e-6;
 /**
  * How the device is being held, derived from gravity alone.
  *
- * Both angles are physical, not sensor-relative: they are computed from the
- * direction gravity points in device axes, so they mean the same thing on iOS
- * and Android and need no per-device calibration.
+ * Both angles are physical, not sensor-relative: they come from the direction
+ * gravity points in device axes, so they mean the same thing on iOS and
+ * Android and need no per-device calibration. Values are signed so a UI can
+ * show which way to correct.
  */
 export interface PostureReading {
   /**
    * Angle between the screen plane and vertical.
    *
-   * `0` is the screen straight up-and-down; `90` is the device lying flat.
+   * `0` is the screen straight up-and-down, `+90` is lying flat face up,
+   * `-90` is lying flat face down.
    */
   screenTiltDeg: number;
   /**
    * Rotation of the device within its own screen plane.
    *
-   * `0` is portrait upright; `±90` is landscape; `180` is upside down.
+   * `0` is portrait upright, `±90` is landscape, `±180` is upside down.
    */
   inPlaneRollDeg: number;
 }
@@ -37,8 +44,8 @@ export interface PostureReading {
 /**
  * Limits that define an acceptable capture pose.
  *
- * These are plain physical tolerances — change them to make the gate stricter
- * or looser. Nothing here has to be measured on a device first.
+ * Plain physical tolerances — raise or lower them to loosen or tighten the
+ * gate. Nothing here has to be measured on a device first.
  */
 export interface PostureLimits {
   /** Max lean away from a vertical screen. People naturally tilt back a bit. */
@@ -58,9 +65,19 @@ export const DEFAULT_POSTURE_LIMITS: PostureLimits = {
   hysteresisDeg: 6,
 };
 
+/** What the operator should do next, when anything. */
+export type PostureGuidance = 'ready' | 'holdUpright' | 'straighten';
+
 export interface DevicePosture {
   /** Reactive state, for enabling or disabling controls. */
   inPosition: boolean;
+  /** Which correction to ask for. Changes at most a few times per second. */
+  guidance: PostureGuidance;
+  /**
+   * Live reading on the UI runtime, for driving an indicator at display rate
+   * without a round trip through JS. `null` on a degenerate sample.
+   */
+  reading: SharedValue<PostureReading | null>;
   /**
    * Immediate read, for gating an action at the moment it is attempted.
    *
@@ -69,8 +86,8 @@ export interface DevicePosture {
    * information.
    */
   check(): boolean;
-  /** Current angles. Useful for on-screen guidance or for tuning the limits. */
-  read(): PostureReading | null;
+  /** Tolerances in force, so an indicator can scale itself to them. */
+  limits: PostureLimits;
   /** `false` when the device exposes no gravity sensor. */
   isAvailable: boolean;
 }
@@ -91,6 +108,8 @@ interface GravityVector {
  * Returns `null` for a degenerate sample rather than emitting a bogus angle.
  */
 function measurePosture(gravity: GravityVector): PostureReading | null {
+  'worklet';
+
   const magnitude = Math.sqrt(
     gravity.x * gravity.x + gravity.y * gravity.y + gravity.z * gravity.z,
   );
@@ -102,10 +121,8 @@ function measurePosture(gravity: GravityVector): PostureReading | null {
   const normalizedZ = Math.min(1, Math.max(-1, -gravity.z / magnitude));
 
   return {
-    screenTiltDeg: Math.abs(Math.asin(normalizedZ) * RAD_TO_DEG),
-    inPlaneRollDeg: Math.abs(
-      Math.atan2(gravity.x, -gravity.y) * RAD_TO_DEG,
-    ),
+    screenTiltDeg: Math.asin(normalizedZ) * RAD_TO_DEG,
+    inPlaneRollDeg: Math.atan2(gravity.x, -gravity.y) * RAD_TO_DEG,
   };
 }
 
@@ -114,6 +131,9 @@ function isWithinLimits(
   limits: PostureLimits,
   wasInPosition: boolean,
 ): boolean {
+  'worklet';
+
+  // A dropped sample must not interrupt a run in progress.
   if (reading == null) {
     return wasInPosition;
   }
@@ -121,9 +141,29 @@ function isWithinLimits(
   const slack = wasInPosition ? limits.hysteresisDeg : 0;
 
   return (
-    reading.screenTiltDeg <= limits.maxScreenTiltDeg + slack &&
-    reading.inPlaneRollDeg <= limits.maxInPlaneRollDeg + slack
+    Math.abs(reading.screenTiltDeg) <= limits.maxScreenTiltDeg + slack &&
+    Math.abs(reading.inPlaneRollDeg) <= limits.maxInPlaneRollDeg + slack
   );
+}
+
+/** Picks the correction to show: whichever axis is further out of range. */
+function guidanceFor(
+  reading: PostureReading | null,
+  limits: PostureLimits,
+): PostureGuidance {
+  if (reading == null) {
+    return 'ready';
+  }
+
+  const tiltExcess =
+    Math.abs(reading.screenTiltDeg) - limits.maxScreenTiltDeg;
+  const rollExcess =
+    Math.abs(reading.inPlaneRollDeg) - limits.maxInPlaneRollDeg;
+
+  if (tiltExcess <= 0 && rollExcess <= 0) {
+    return 'ready';
+  }
+  return tiltExcess >= rollExcess ? 'holdUpright' : 'straighten';
 }
 
 /**
@@ -137,30 +177,29 @@ export function useDevicePosture(
 ): DevicePosture {
   const { sensor, isAvailable } = useAnimatedSensor(SensorType.GRAVITY, {
     interval: SAMPLE_MS,
-    // Raw device axes. The angles below are physical facts about how the
-    // handset is held, and must not be rewritten to follow the UI.
+    // Raw device axes. These angles are physical facts about how the handset
+    // is held, and must not be rewritten to follow the UI.
     adjustToInterfaceOrientation: false,
   });
 
   const [inPosition, setInPosition] = useState(false);
+  const [guidance, setGuidance] = useState<PostureGuidance>('holdUpright');
   // Owned by the sampling effect. `check` reads it to pick the hysteresis
   // slack but never writes, so there is exactly one writer.
   const inPositionRef = useRef(false);
+  const guidanceRef = useRef<PostureGuidance>('holdUpright');
 
   const { maxScreenTiltDeg, maxInPlaneRollDeg, hysteresisDeg } = limits;
 
-  const read = (): PostureReading | null => {
-    if (!isAvailable) {
-      return null;
-    }
+  const reading = useDerivedValue<PostureReading | null>(() => {
     return measurePosture(sensor.get());
-  };
+  });
 
   const check = (): boolean => {
     if (!isAvailable) {
       return true;
     }
-    return isWithinLimits(read(), limits, inPositionRef.current);
+    return isWithinLimits(measurePosture(sensor.get()), limits, inPositionRef.current);
   };
 
   useEffect(() => {
@@ -168,17 +207,31 @@ export function useDevicePosture(
       return;
     }
 
+    const activeLimits: PostureLimits = {
+      maxScreenTiltDeg,
+      maxInPlaneRollDeg,
+      hysteresisDeg,
+    };
+
     const timer = setInterval((): void => {
-      const next = isWithinLimits(
-        measurePosture(sensor.get()),
-        { maxScreenTiltDeg, maxInPlaneRollDeg, hysteresisDeg },
+      const sample = measurePosture(sensor.get());
+      const nextInPosition = isWithinLimits(
+        sample,
+        activeLimits,
         inPositionRef.current,
       );
+      const nextGuidance = nextInPosition
+        ? 'ready'
+        : guidanceFor(sample, activeLimits);
 
-      // Only re-render on the transition, not on every sample.
-      if (next !== inPositionRef.current) {
-        inPositionRef.current = next;
-        setInPosition(next);
+      // Only re-render on a transition, not on every sample.
+      if (nextInPosition !== inPositionRef.current) {
+        inPositionRef.current = nextInPosition;
+        setInPosition(nextInPosition);
+      }
+      if (nextGuidance !== guidanceRef.current) {
+        guidanceRef.current = nextGuidance;
+        setGuidance(nextGuidance);
       }
     }, SAMPLE_MS);
 
@@ -193,8 +246,10 @@ export function useDevicePosture(
 
   return {
     inPosition: isAvailable ? inPosition : true,
+    guidance: isAvailable ? guidance : 'ready',
+    reading,
     check,
-    read,
+    limits,
     isAvailable,
   };
 }
