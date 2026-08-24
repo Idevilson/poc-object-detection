@@ -3,8 +3,6 @@
 A mobile face recognition app that detects, enrolls, and recognizes faces fully
 offline on-device.
 
-https://github.com/user-attachments/assets/9dfabd37-8201-476a-88d2-c81d7ecd9c8b
-
 ## Requirements
 
 Use a physical device with a front camera. Simulator and emulator runs are not
