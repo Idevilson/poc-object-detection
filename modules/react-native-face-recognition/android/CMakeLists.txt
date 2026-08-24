@@ -12,46 +12,18 @@ add_library(
   SHARED
   src/main/cpp/cpp-adapter.cpp
   src/main/cpp/AndroidModelLoader.cpp
-  ../cpp/bridge/HybridFaceRecognizer.cpp
-  ../cpp/bridge/HybridFaceRecognizerFactory.cpp
+  ../cpp/bridge/HybridObjectDetector.cpp
+  ../cpp/bridge/HybridObjectDetectorFactory.cpp
   ../cpp/detection/DetectorSession.cpp
-  ../cpp/detection/YuNetDecoder.cpp
+  ../cpp/detection/YoloxDecoder.cpp
   ../cpp/engine/FaceEngine.cpp
   ../cpp/engine/FaceEngineConfig.cpp
-  ../cpp/engine/FaceEngineEnrollment.cpp
   ../cpp/engine/FaceEngineProfiling.cpp
-  ../cpp/engine/FaceEngineRecognition.cpp
-  ../cpp/enrollment/EnrollmentCodec.cpp
-  ../cpp/enrollment/EnrollmentMatcher.cpp
-  ../cpp/enrollment/EnrollmentStore.cpp
   ../cpp/frame/FrameSampler.cpp
-  ../cpp/liveness/LivenessEnsemble.cpp
-  ../cpp/recognition/RecognizerSession.cpp
   ../cpp/runtime/BufferMemory.cpp
   ../cpp/runtime/FaceEngineSession.cpp
   ../cpp/runtime/ModelFile.cpp
-  ../cpp/tracking/FaceTracker.cpp
 )
-
-option(FACE_RECOGNIZER_ENABLE_BENCH
-       "Compile the opt-in gallery benchmark harness" OFF)
-if(FACE_RECOGNIZER_ENABLE_BENCH)
-  set(FACE_RECOGNIZER_BENCH_ROOT
-      "${CMAKE_CURRENT_LIST_DIR}/../../../../benchmark")
-  target_sources(
-    ${PACKAGE_NAME}
-    PRIVATE
-    "${FACE_RECOGNIZER_BENCH_ROOT}/GalleryBench.cpp"
-    "${FACE_RECOGNIZER_BENCH_ROOT}/GalleryBenchCropExporter.cpp"
-    "${FACE_RECOGNIZER_BENCH_ROOT}/GalleryBenchExperiment.cpp"
-    "${FACE_RECOGNIZER_BENCH_ROOT}/GalleryBenchFrame.cpp"
-    "${FACE_RECOGNIZER_BENCH_ROOT}/GalleryBenchSupport.cpp"
-  )
-  target_include_directories(${PACKAGE_NAME} PRIVATE
-                             "${FACE_RECOGNIZER_BENCH_ROOT}")
-  target_compile_definitions(${PACKAGE_NAME}
-                             PRIVATE FACE_RECOGNIZER_ENABLE_BENCH=1)
-endif()
 
 if(FACE_RECOGNIZER_PROFILE_RELEASE)
   target_compile_definitions(${PACKAGE_NAME} PRIVATE FACE_RECOGNIZER_PROFILE_RELEASE=1)
@@ -65,12 +37,9 @@ include_directories(
   "../cpp/bridge"
   "../cpp/detection"
   "../cpp/engine"
-  "../cpp/enrollment"
   "../cpp/frame"
-  "../cpp/liveness"
-  "../cpp/recognition"
+  "../cpp/geometry"
   "../cpp/runtime"
-  "../cpp/tracking"
 )
 
 set(ORT_ROOT "${CMAKE_SOURCE_DIR}/../third_party/onnxruntime/android")

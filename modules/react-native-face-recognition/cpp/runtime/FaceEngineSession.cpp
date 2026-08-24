@@ -82,7 +82,7 @@ bool appendQnnGpuProvider(Ort::SessionOptions& options) {
 #endif
 
 Ort::SessionOptions buildSessionOptions(int inferenceThreads,
-                                        FaceExecutionProvider provider,
+                                        DetectorExecutionProvider provider,
                                         bool useSharedArena) {
   Ort::SessionOptions options;
   options.SetIntraOpNumThreads(inferenceThreads);
@@ -103,7 +103,7 @@ Ort::SessionOptions buildSessionOptions(int inferenceThreads,
   // reuses its shared arena and on-demand sessions avoid arenas entirely.
   options.DisableMemPattern();
 
-  if (provider == FaceExecutionProvider::CPU) {
+  if (provider == DetectorExecutionProvider::CPU) {
     appendXnnpackProvider(options, inferenceThreads);
 #if defined(__ANDROID__)
     logAndroidProviderStatus("xnnpack", "enabled", "requested_cpu");
@@ -112,14 +112,14 @@ Ort::SessionOptions buildSessionOptions(int inferenceThreads,
   }
 
 #if defined(__ANDROID__)
-  if (provider == FaceExecutionProvider::AUTO) {
+  if (provider == DetectorExecutionProvider::AUTO) {
     appendNnapiProvider(options);
     appendXnnpackProvider(options, inferenceThreads);
     logAndroidProviderStatus("xnnpack", "enabled", "auto_fallback");
     return options;
   }
 
-  if (provider == FaceExecutionProvider::GPU) {
+  if (provider == DetectorExecutionProvider::GPU) {
     if (!appendQnnGpuProvider(options)) {
       appendNnapiProvider(options);
     }
@@ -133,20 +133,20 @@ Ort::SessionOptions buildSessionOptions(int inferenceThreads,
       options, NNAPI_FLAG_CPU_DISABLED));
   logAndroidProviderStatus("nnapi", "enabled", "strict_cpu_disabled");
 #elif defined(__APPLE__)
-  if (provider == FaceExecutionProvider::AUTO) {
+  if (provider == DetectorExecutionProvider::AUTO) {
     appendXnnpackProvider(options, inferenceThreads);
     return options;
   }
 
   options.AddConfigEntry(kOrtSessionOptionsDisableCPUEPFallback, "1");
   uint32_t coremlFlags = COREML_FLAG_ONLY_ALLOW_STATIC_INPUT_SHAPES;
-  if (provider == FaceExecutionProvider::GPU) {
+  if (provider == DetectorExecutionProvider::GPU) {
     coremlFlags |= COREML_FLAG_USE_CPU_AND_GPU;
   }
   Ort::ThrowOnError(
       OrtSessionOptionsAppendExecutionProvider_CoreML(options, coremlFlags));
 #else
-  if (provider == FaceExecutionProvider::AUTO) {
+  if (provider == DetectorExecutionProvider::AUTO) {
     appendXnnpackProvider(options, inferenceThreads);
     return options;
   }
@@ -170,7 +170,7 @@ void applyDimensionOverrides(
 std::unique_ptr<Ort::Session> createSessionWithProvider(
     const std::string& modelPath,
     int inferenceThreads,
-    FaceExecutionProvider provider,
+    DetectorExecutionProvider provider,
     bool useSharedArena,
     std::span<const SessionDimensionOverride> dimensionOverrides) {
   Ort::SessionOptions options =
@@ -185,12 +185,12 @@ std::unique_ptr<Ort::Session> createSessionWithProvider(
 std::unique_ptr<Ort::Session> createSession(
     const std::string& modelPath,
     int inferenceThreads,
-    FaceExecutionProvider provider,
+    DetectorExecutionProvider provider,
     bool useSharedArena,
     std::span<const SessionDimensionOverride> dimensionOverrides) {
   // Every step of the provider-fallback ladder builds the same session and
   // varies only the provider; keep the shared arguments in one place.
-  const auto makeSession = [&](FaceExecutionProvider sessionProvider) {
+  const auto makeSession = [&](DetectorExecutionProvider sessionProvider) {
     return createSessionWithProvider(modelPath,
                                      inferenceThreads,
                                      sessionProvider,
@@ -199,12 +199,12 @@ std::unique_ptr<Ort::Session> createSession(
   };
 
 #if defined(__ANDROID__)
-  if (provider == FaceExecutionProvider::AUTO) {
+  if (provider == DetectorExecutionProvider::AUTO) {
     try {
       return makeSession(provider);
     } catch (const Ort::Exception& autoError) {
       try {
-        return makeSession(FaceExecutionProvider::CPU);
+        return makeSession(DetectorExecutionProvider::CPU);
       } catch (const Ort::Exception& fallbackError) {
         throw std::runtime_error(
             "Failed to create ONNX Runtime session for model '" + modelPath +
@@ -215,14 +215,14 @@ std::unique_ptr<Ort::Session> createSession(
     }
   }
 
-  if (provider == FaceExecutionProvider::GPU) {
+  if (provider == DetectorExecutionProvider::GPU) {
     try {
       return makeSession(provider);
     } catch (const Ort::Exception& gpuError) {
       try {
         return createSession(modelPath,
                              inferenceThreads,
-                             FaceExecutionProvider::AUTO,
+                             DetectorExecutionProvider::AUTO,
                              useSharedArena,
                              dimensionOverrides);
       } catch (const Ort::Exception& fallbackError) {

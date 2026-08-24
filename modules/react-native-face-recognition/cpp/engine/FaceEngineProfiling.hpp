@@ -10,15 +10,7 @@ namespace margelo::nitro::facerecognizer {
 
 enum class FaceProfileStage : std::uint8_t {
   LoadDetector,
-  TrackFaces,
-  DetectFaces,
-  LoadLiveness,
-  ScoreLiveness,
-  RecognizeFaces,
-  AlignFace,
-  EmbedFace,
-  MatchFace,
-  LoadRecognizer,
+  DetectObjects,
   Count,
 };
 

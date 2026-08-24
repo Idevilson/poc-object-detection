@@ -21,19 +21,7 @@ std::string bundledModelPath(NSString* name) {
 }  // namespace
 
 std::string bundledDetectorModelPath() {
-  return bundledModelPath(@"yunet");
-}
-
-std::string bundledRecognizerModelPath() {
-#if defined(FACE_RECOGNIZER_BENCH_RECOGNIZER_MODEL_PATH)
-  return FACE_RECOGNIZER_BENCH_RECOGNIZER_MODEL_PATH;
-#else
-  return bundledModelPath(@"sface");
-#endif
-}
-
-std::string bundledLivenessModelPath(const std::string& baseName) {
-  return bundledModelPath([NSString stringWithUTF8String:baseName.c_str()]);
+  return bundledModelPath(@"yolox_nano");
 }
 
 }  // namespace margelo::nitro::facerecognizer

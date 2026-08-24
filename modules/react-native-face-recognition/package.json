@@ -1,7 +1,7 @@
 {
   "name": "react-native-vision-camera-face-recognizer",
   "version": "0.1.0",
-  "description": "Offline on-device face detection and recognition for React Native VisionCamera, built with Nitro and ONNX Runtime",
+  "description": "Offline on-device object detection for React Native VisionCamera, built with Nitro and ONNX Runtime",
   "main": "./lib/commonjs/index.js",
   "module": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -21,9 +21,9 @@
   "keywords": [
     "react-native",
     "vision-camera",
-    "face-detection",
-    "face-recognition",
-    "react-native-vision-camera-face-recognizer"
+    "object-detection",
+    "yolox",
+    "onnxruntime"
   ],
   "files": [
     "src",
@@ -34,7 +34,6 @@
     "cpp",
     "third_party/onnxruntime/android/headers",
     "third_party/onnxruntime/android/arm64-v8a",
-    "third_party/qnn/android/arm64-v8a",
     "nitro.json",
     "android/build.gradle",
     "android/fix-prefab.gradle",

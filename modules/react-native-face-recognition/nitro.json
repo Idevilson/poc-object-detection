@@ -13,10 +13,10 @@
     "androidCxxLibName": "FaceRecognizer"
   },
   "autolinking": {
-    "FaceRecognizerFactory": {
+    "ObjectDetectorFactory": {
       "all": {
         "language": "c++",
-        "implementationClassName": "HybridFaceRecognizerFactory"
+        "implementationClassName": "HybridObjectDetectorFactory"
       }
     }
   },

@@ -33,8 +33,8 @@ target_sources(
   # Autolinking Setup
   ../nitrogen/generated/android/FaceRecognizerOnLoad.cpp
   # Shared Nitrogen C++ sources
-  ../nitrogen/generated/shared/c++/HybridFaceRecognizerSpec.cpp
-  ../nitrogen/generated/shared/c++/HybridFaceRecognizerFactorySpec.cpp
+  ../nitrogen/generated/shared/c++/HybridObjectDetectorSpec.cpp
+  ../nitrogen/generated/shared/c++/HybridObjectDetectorFactorySpec.cpp
   # Android-specific Nitrogen C++ sources
   
 )

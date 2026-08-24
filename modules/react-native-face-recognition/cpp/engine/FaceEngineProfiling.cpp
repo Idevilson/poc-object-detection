@@ -37,24 +37,8 @@ constexpr const char* stageName(FaceProfileStage stage) noexcept {
   switch (stage) {
     case FaceProfileStage::LoadDetector:
       return "load_detector";
-    case FaceProfileStage::TrackFaces:
-      return "track_faces";
-    case FaceProfileStage::DetectFaces:
-      return "detect_faces";
-    case FaceProfileStage::LoadLiveness:
-      return "load_liveness";
-    case FaceProfileStage::ScoreLiveness:
-      return "score_liveness";
-    case FaceProfileStage::RecognizeFaces:
-      return "recognize_faces";
-    case FaceProfileStage::AlignFace:
-      return "align_face";
-    case FaceProfileStage::EmbedFace:
-      return "embed_face";
-    case FaceProfileStage::MatchFace:
-      return "match_face";
-    case FaceProfileStage::LoadRecognizer:
-      return "load_recognizer";
+    case FaceProfileStage::DetectObjects:
+      return "detect_objects";
     case FaceProfileStage::Count:
       break;
   }
@@ -62,9 +46,7 @@ constexpr const char* stageName(FaceProfileStage stage) noexcept {
 }
 
 constexpr bool shouldLogImmediately(FaceProfileStage stage) noexcept {
-  return stage == FaceProfileStage::LoadDetector ||
-         stage == FaceProfileStage::LoadLiveness ||
-         stage == FaceProfileStage::LoadRecognizer;
+  return stage == FaceProfileStage::LoadDetector;
 }
 
 void logProfileSummary(FaceProfileStage stage,

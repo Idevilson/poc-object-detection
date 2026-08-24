@@ -10,7 +10,7 @@
 
 #import <type_traits>
 
-#include "HybridFaceRecognizerFactory.hpp"
+#include "HybridObjectDetectorFactory.hpp"
 
 @interface FaceRecognizerAutolinking : NSObject
 @end
@@ -22,12 +22,12 @@
   using namespace margelo::nitro::facerecognizer;
 
   HybridObjectRegistry::registerHybridObjectConstructor(
-    "FaceRecognizerFactory",
+    "ObjectDetectorFactory",
     []() -> std::shared_ptr<HybridObject> {
-      static_assert(std::is_default_constructible_v<HybridFaceRecognizerFactory>,
-                    "The HybridObject \"HybridFaceRecognizerFactory\" is not default-constructible! "
+      static_assert(std::is_default_constructible_v<HybridObjectDetectorFactory>,
+                    "The HybridObject \"HybridObjectDetectorFactory\" is not default-constructible! "
                     "Create a public constructor that takes zero arguments to be able to autolink this HybridObject.");
-      return std::make_shared<HybridFaceRecognizerFactory>();
+      return std::make_shared<HybridObjectDetectorFactory>();
     }
   );
 }

@@ -73,15 +73,7 @@ void prepareAndroidModelLoader() {
 }
 
 std::string bundledDetectorModelPath() {
-  return materializeBundledModel("yunet.onnx");
-}
-
-std::string bundledRecognizerModelPath() {
-  return materializeBundledModel("sface.onnx");
-}
-
-std::string bundledLivenessModelPath(const std::string& baseName) {
-  return materializeBundledModel(baseName + ".onnx");
+  return materializeBundledModel("yolox_nano.onnx");
 }
 
 }  // namespace margelo::nitro::facerecognizer

@@ -31,12 +31,9 @@ Pod::Spec.new do |s|
       "$(PODS_TARGET_SRCROOT)/cpp/bridge",
       "$(PODS_TARGET_SRCROOT)/cpp/detection",
       "$(PODS_TARGET_SRCROOT)/cpp/engine",
-      "$(PODS_TARGET_SRCROOT)/cpp/enrollment",
       "$(PODS_TARGET_SRCROOT)/cpp/frame",
-      "$(PODS_TARGET_SRCROOT)/cpp/liveness",
-      "$(PODS_TARGET_SRCROOT)/cpp/recognition",
+      "$(PODS_TARGET_SRCROOT)/cpp/geometry",
       "$(PODS_TARGET_SRCROOT)/cpp/runtime",
-      "$(PODS_TARGET_SRCROOT)/cpp/tracking",
     ].join(" "),
   })
 

@@ -1,11 +1,10 @@
 #include "FaceEngine.hpp"
 
-#include "BufferMemory.hpp"
+#include "DetectionGeometry.hpp"
+#include "FrameSampler.hpp"
 
 #include <stdexcept>
-#if defined(FACE_RECOGNIZER_ENABLE_BENCH) && FACE_RECOGNIZER_ENABLE_BENCH
-#include "GalleryBench.hpp"
-#endif
+#include <utility>
 #if defined(__ANDROID__)
 #include <dlfcn.h>
 #include <malloc.h>
@@ -13,18 +12,12 @@
 
 namespace margelo::nitro::facerecognizer {
 
-FaceEngine::FaceEngine(const FaceRecognizerOptions& options)
-    : _config(validateFaceRecognizerOptions(options)),
+FaceEngine::FaceEngine(const ObjectDetectorOptions& options)
+    : _config(validateObjectDetectorOptions(options)),
       _memoryInfo(
           Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)),
       _detector(_config, _memoryInfo),
-      _framesSinceDetection(_config.detectionInterval),
-      _framesSinceRecognition(_config.recognitionInterval),
-      _isDisposed(false) {
-#if defined(FACE_RECOGNIZER_ENABLE_BENCH) && FACE_RECOGNIZER_ENABLE_BENCH
-  maybeStartGalleryBenchmark();
-#endif
-}
+      _isDisposed(false) {}
 
 FaceEngine::~FaceEngine() {
   dispose();
@@ -33,8 +26,28 @@ FaceEngine::~FaceEngine() {
 void FaceEngine::ensureActiveLocked() const {
   if (_isDisposed) {
     throw std::runtime_error(
-        "FaceRecognizer native engine has been disposed and cannot be reused.");
+        "ObjectDetector native engine has been disposed and cannot be reused.");
   }
+}
+
+std::vector<DetectedObject> FaceEngine::detectObjects(
+    const std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>& frame) {
+  std::lock_guard<std::mutex> lock(_inferenceMutex);
+  ensureActiveLocked();
+
+  const FrameSampler sampler(frame);
+  std::vector<DetectedBox> boxes =
+      _detector.detect(sampler, _config, _config.maxObjects);
+
+  // The detector works in frame space; overlays consume upright display space.
+  std::vector<DetectedObject> detected;
+  detected.reserve(boxes.size());
+  for (DetectedBox& box : boxes) {
+    toUprightBox(sampler, box);
+    detected.push_back(DetectedObject{
+        box.bounds, box.confidence, static_cast<double>(box.classId)});
+  }
+  return detected;
 }
 
 void FaceEngine::dispose() noexcept {
@@ -46,13 +59,8 @@ void FaceEngine::releaseResourcesLocked() noexcept {
   if (_isDisposed) {
     return;
   }
-  _liveness.release();
-  _recognizer.release();
   _detector.release();
-  _tracker.reset();
-  _recentMatches.clear();
-  _pendingRecognitions.clear();
-  _enrollments.clear();
+  trimNativeHeapLocked();
   _isDisposed = true;
 }
 
@@ -71,37 +79,11 @@ void FaceEngine::trimNativeHeapLocked() const noexcept {
 #endif
 }
 
-void FaceEngine::releaseIdleModelsLocked() noexcept {
-  if (!_enrollments.empty()) {
-    return;
-  }
-  // Only trim on a loaded -> released transition; purging the native heap
-  // every no-enrollment frame would fight the allocator and fault pages back
-  // in on the next frame.
-  if (!_recognizer.isLoaded() && !_liveness.isLoaded()) {
-    return;
-  }
-  _recognizer.release();
-  _liveness.release();
-  trimNativeHeapLocked();
-}
-
 std::size_t FaceEngine::externalMemorySize() const noexcept {
   const std::unique_lock<std::mutex> lock(_inferenceMutex, std::try_to_lock);
   if (lock.owns_lock()) {
-    std::size_t byteSize = 0;
-    byteSize += _detector.externalMemorySize();
-    byteSize += _recognizer.externalMemorySize();
-    byteSize += _liveness.externalMemorySize();
-    byteSize += _enrollments.externalMemorySize();
-    byteSize += vectorCapacityByteSize(_pendingRecognitions);
-    for (const PendingRecognition& pending : _pendingRecognitions) {
-      byteSize += vectorCapacityByteSize(pending.samples);
-      for (const FaceEmbedding& sample : pending.samples) {
-        byteSize += vectorCapacityByteSize(sample);
-      }
-    }
-    _lastKnownExternalMemorySize.store(byteSize, std::memory_order_relaxed);
+    _lastKnownExternalMemorySize.store(_detector.externalMemorySize(),
+                                       std::memory_order_relaxed);
   }
   return _lastKnownExternalMemorySize.load(std::memory_order_relaxed);
 }

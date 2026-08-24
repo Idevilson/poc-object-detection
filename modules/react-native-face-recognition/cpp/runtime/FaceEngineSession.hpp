@@ -1,6 +1,6 @@
 #pragma once
 
-#include "FaceExecutionProvider.hpp"
+#include "DetectorExecutionProvider.hpp"
 
 #include "onnxruntime_cxx_api.h"
 
@@ -19,7 +19,7 @@ struct SessionDimensionOverride final {
 std::unique_ptr<Ort::Session> createSession(
     const std::string& modelPath,
     int inferenceThreads,
-    FaceExecutionProvider provider,
+    DetectorExecutionProvider provider,
     bool useSharedArena,
     std::span<const SessionDimensionOverride> dimensionOverrides);
 
