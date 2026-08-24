@@ -1,12 +1,16 @@
-import type { RecognizedFace } from 'react-native-vision-camera-face-recognizer';
-
-export type Mode = 'register' | 'recognize';
+import type { DetectedObject } from 'react-native-vision-camera-face-recognizer';
 
 /**
- * Maximum number of faces detected/recognized and drawn at once. Shared by the
- * native `maxFaces` option and the overlay's rendered slot count.
+ * Objects detected and drawn at once.
+ *
+ * Shared by the native `maxObjects` option and the overlay's rendered slot
+ * count: every slot is a pre-mounted animated component, so this is a real UI
+ * cost, not just a cap on results.
  */
-export const MAX_FACES = 4;
+export const MAX_OBJECTS = 12;
+
+/** Sentinel class id for an empty slot. */
+export const NO_CLASS_ID = -1;
 
 export interface OverlayLayout {
   width: number;
@@ -14,55 +18,48 @@ export interface OverlayLayout {
 }
 
 /**
- * A face as the overlay consumes it. Bounds and landmarks are already oriented
- * into upright display coordinates by the native engine.
+ * An object as the overlay consumes it. Bounds are already oriented into
+ * upright display coordinates by the native engine.
  */
-export type OverlayFaceSlot = RecognizedFace | null;
+export type OverlaySlot = DetectedObject | null;
 
 export interface OverlayState {
-  faces: OverlayFaceSlot[];
+  objects: OverlaySlot[];
   frameWidth: number;
   frameHeight: number;
   version: number;
 }
 
-export interface Profile {
-  id: string;
-  fullName: string;
-  enrolledAt: number;
-  sampleCount: number;
-}
-
-export type MatchOut = {
-  id: string;
-  similarity: number;
-  version: number;
-  faceIndex: number;
-} | null;
-
-export interface RecognitionState {
-  match: MatchOut;
-  matches: MatchOut[];
-  visibleFaceCount: number;
-  visibleFaceSlots: boolean[];
+/**
+ * Detection summary mirrored to the JS thread for the labels and the HUD.
+ *
+ * Only the class id crosses over, not the label string: resolving the name in
+ * React keeps per-frame string work off the worklet, and the version guard
+ * means a steady scene stops re-rendering entirely.
+ */
+export interface DetectionState {
+  /** Class id per overlay slot, or `NO_CLASS_ID` when the slot is empty. */
+  classIds: number[];
+  /** Confidence per overlay slot, or `0` when the slot is empty. */
+  confidences: number[];
+  objectCount: number;
   version: number;
   status: string;
 }
 
 export const EMPTY_OVERLAY_STATE: OverlayState = {
-  faces: [],
+  objects: [],
   frameWidth: 0,
   frameHeight: 0,
   version: 0,
 };
 
-export const INITIAL_RECOGNITION_STATE: RecognitionState = {
-  match: null,
-  matches: [],
-  visibleFaceCount: 0,
-  visibleFaceSlots: [],
+export const INITIAL_DETECTION_STATE: DetectionState = {
+  classIds: [],
+  confidences: [],
+  objectCount: 0,
   version: 0,
-  status: 'Point the camera at a face.',
+  status: 'Point the camera at a scene.',
 };
 
 export const EMPTY_LAYOUT: OverlayLayout = {

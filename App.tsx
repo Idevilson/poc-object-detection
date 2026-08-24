@@ -1,18 +1,13 @@
 import type React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { KeyboardController } from 'react-native-keyboard-controller';
+import { StyleSheet, View } from 'react-native';
 import { Camera, type Constraint } from 'react-native-vision-camera';
 import { CenteredMessage } from './src/components/centered-message';
-import { FaceRecognitionLayer } from './src/components/face-recognition-layer';
+import { DetectionLayer } from './src/components/detection-layer';
 import { C } from './src/constants/theme';
-import { useFaceEngine } from './src/hooks/use-face-engine';
-
-function dismissKeyboard(): void {
-  KeyboardController.dismiss();
-}
+import { useDetectorEngine } from './src/hooks/use-detector-engine';
 
 function App(): React.JSX.Element {
-  const engine = useFaceEngine();
+  const engine = useDetectorEngine();
   const cameraConstraints = [
     { resolutionBias: engine.frameOutput },
     { fps: 30 },
@@ -24,7 +19,7 @@ function App(): React.JSX.Element {
   }
 
   if (!engine.hasPermission || engine.device == null) {
-    return <CenteredMessage message="Preparing face recognition…" />;
+    return <CenteredMessage message="Preparing object detection…" />;
   }
 
   return (
@@ -33,23 +28,18 @@ function App(): React.JSX.Element {
         style={StyleSheet.absoluteFill}
         device={engine.device}
         isActive={engine.isForeground}
-        mirrorMode={engine.device.position === 'front' ? 'on' : 'off'}
         orientationSource="interface"
         constraints={cameraConstraints}
         outputs={cameraOutputs}
       />
-      {engine.recognizer == null ? (
+      {engine.detector == null ? (
         <View style={styles.preparing}>
-          <CenteredMessage message="Preparing face recognition…" />
+          <CenteredMessage message="Loading detector…" />
         </View>
       ) : (
         <>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={dismissKeyboard}
-          />
           <View style={styles.vignette} pointerEvents="none" />
-          <FaceRecognitionLayer engine={engine} />
+          <DetectionLayer engine={engine} />
         </>
       )}
     </View>

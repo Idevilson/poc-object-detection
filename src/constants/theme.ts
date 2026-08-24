@@ -61,3 +61,28 @@ export const TYPE = {
     color: C.white,
   },
 } satisfies Record<string, TextStyle>;
+
+/**
+ * Box colors cycled by class id.
+ *
+ * A scene view routinely holds several classes at once, and a single accent
+ * color makes overlapping boxes unreadable. These are picked to stay legible
+ * against a camera feed and to differ from each other at small sizes.
+ */
+export const CLASS_COLORS = [
+  '#FFB300',
+  '#5CE08A',
+  '#4DB8FF',
+  '#FF6B6B',
+  '#C792EA',
+  '#FFD866',
+  '#7FDBCA',
+  '#FF9E64',
+] as const;
+
+/** Stable color for one COCO class id. */
+export function classColor(classId: number): string {
+  const index = ((classId % CLASS_COLORS.length) + CLASS_COLORS.length) %
+    CLASS_COLORS.length;
+  return CLASS_COLORS[index]!;
+}

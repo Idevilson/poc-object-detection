@@ -1,7 +1,7 @@
 const path = require('path');
 
 /**
- * The face recognizer lives in this repo at modules/react-native-face-recognition
+ * The object detector lives in this repo at modules/react-native-face-recognition
  * and is reached via a workspace symlink in node_modules. Left to its own devices,
  * CocoaPods declares the pod at the symlink but resolves its sources through the
  * real path, which makes Xcode render two mismatched "Development Pods" groups

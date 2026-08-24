@@ -61,7 +61,6 @@
   "peerDependencies": {
     "react": "*",
     "react-native": "*",
-    "react-native-nitro-image": "*",
     "react-native-nitro-modules": "*",
     "react-native-vision-camera": "*"
   },

@@ -1,6 +1,6 @@
 import type { OverlayLayout, OverlayState } from '../types';
 
-export interface FaceRect {
+export interface OverlayRect {
   /** Left edge in preview layout pixels. */
   left: number;
   /** Top edge in preview layout pixels. */
@@ -12,20 +12,20 @@ export interface FaceRect {
 }
 
 /**
- * Projects a native face rectangle onto the cover-scaled preview layout.
+ * Projects a native object rectangle onto the cover-scaled preview layout.
  *
- * Returns `null` when the face or frame/layout dimensions are invalid, or when
- * the scaled rectangle is fully outside the visible preview.
+ * Returns `null` when the slot is empty, the frame/layout dimensions are
+ * invalid, or the scaled rectangle is fully outside the visible preview.
  */
-export function computeFaceRect(
+export function computeObjectRect(
   state: OverlayState,
   layout: OverlayLayout,
-  faceIndex: number,
-): FaceRect | null {
+  slotIndex: number,
+): OverlayRect | null {
   'worklet';
-  const face = state.faces[faceIndex];
+  const object = state.objects[slotIndex];
   if (
-    face == null ||
+    object == null ||
     state.frameWidth <= 0 ||
     state.frameHeight <= 0 ||
     layout.width <= 0 ||
@@ -41,10 +41,10 @@ export function computeFaceRect(
   const offsetX = (layout.width - state.frameWidth * scale) * 0.5;
   const offsetY = (layout.height - state.frameHeight * scale) * 0.5;
 
-  const scaledLeft = face.bounds.x * scale + offsetX;
-  const scaledTop = face.bounds.y * scale + offsetY;
-  const scaledRight = scaledLeft + face.bounds.width * scale;
-  const scaledBottom = scaledTop + face.bounds.height * scale;
+  const scaledLeft = object.bounds.x * scale + offsetX;
+  const scaledTop = object.bounds.y * scale + offsetY;
+  const scaledRight = scaledLeft + object.bounds.width * scale;
+  const scaledBottom = scaledTop + object.bounds.height * scale;
   if (
     scaledRight <= 0 ||
     scaledBottom <= 0 ||

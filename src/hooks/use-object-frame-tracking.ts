@@ -8,18 +8,18 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 import type { OverlayLayout, OverlayState } from '../types';
-import { computeFaceRect } from '../utils/geometry';
+import { computeObjectRect } from '../utils/geometry';
 import { smoothTrackingValue } from '../utils/tracking';
 
-interface FaceFrameTrackingParams {
-  overlayFaces: SharedValue<OverlayState>;
+interface ObjectFrameTrackingParams {
+  overlayObjects: SharedValue<OverlayState>;
   layout: SharedValue<OverlayLayout>;
-  faceIndex: number;
+  slotIndex: number;
 }
 
 type AnimatedViewStyle = ReturnType<typeof useAnimatedStyle<ViewStyle>>;
 
-interface FaceFrameTrackingStyles {
+interface ObjectFrameTrackingStyles {
   opacityStyle: AnimatedViewStyle;
   targetSizeStyle: AnimatedViewStyle;
   positionStyle: AnimatedViewStyle;
@@ -91,11 +91,11 @@ function smoothSizeValue(current: number, next: number): number {
   );
 }
 
-export function useFaceFrameTracking({
-  overlayFaces,
+export function useObjectFrameTracking({
+  overlayObjects,
   layout,
-  faceIndex,
-}: FaceFrameTrackingParams): FaceFrameTrackingStyles {
+  slotIndex,
+}: ObjectFrameTrackingParams): ObjectFrameTrackingStyles {
   const visible = useSharedValue(0);
   const targetCenterX = useSharedValue(0);
   const targetCenterY = useSharedValue(0);
@@ -107,7 +107,7 @@ export function useFaceFrameTracking({
   const displayHeight = useSharedValue(0);
 
   useAnimatedReaction(
-    () => computeFaceRect(overlayFaces.get(), layout.get(), faceIndex),
+    () => computeObjectRect(overlayObjects.get(), layout.get(), slotIndex),
     rect => {
       if (rect == null) {
         visible.set(withTiming(0, { duration: VISIBILITY_MS }));
